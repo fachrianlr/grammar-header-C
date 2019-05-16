@@ -1,0 +1,536 @@
+header 
+	:  headerGuard  [translationUnit]  Endif 
+	;
+
+headerGuard
+	:  Ifndef Identifier Define Identifier
+	;
+	
+translationUnit 
+	:  bodyList
+	|  translationUnit bodyList 
+	| preprocessorList
+	| translationUnit preprocessorList
+	;
+
+preprocessorList
+	: preprocessor
+	| preprocessorList preprocessor
+	;
+
+preprocessor
+	: includeList
+	| defineList
+	| undefList
+	| booleanMacro
+	| conditionalMacroList
+	| lineList
+	| pragmaList
+	;
+
+booleanMacro
+	: Define 'true 1' Define 'false 0' Define 'boolean unsigned char'
+	;
+	
+defineList
+	: defineMacro
+	| defineList defineMacro
+	;
+	
+defineMacro 
+	: Define defineDeclarator  defineInitializer  
+	;
+	
+defineDeclarator
+	: Identifier ['(' [identifierList] ')' ]
+	;
+	
+defineInitializer
+	:  ?...? { (primaryExpression ?...? ) }    
+	;
+	
+undefList
+	: undef
+	| undefList undef
+	;
+	
+undef 
+	: Undef Identifier
+	;
+
+conditionalMacroList
+	: conditionalMacro
+	| conditionalMacroList conditionalMacro
+	;
+	
+conditionalMacro 
+	: (IfDefined |IfMacro  | Ifdef | Ifndef)ifexpression  statement [innerIf] [elseList] Endif
+	;
+
+ifexpression
+	:  '(' ?...?[( expression ?...?)] ')' 
+	|  ?...?[(expression ?...?)] 
+    ;
+
+elseList 
+	: elsestatement [innerIf]
+	| elseList elsestatement
+	;
+	
+innerIf
+	: ifstatement
+	| innerIf ifstatement
+	;
+
+ifstatement
+	: ( (IfDefined | IfMacro | Ifdef | Ifndef) ifexpression  statement [innerIf] [elseList] ) Endif
+	;
+
+elsestatement
+	: ElifDefined ifexpression statement 
+	| Elif ifexpression statement 
+	| ElseMacro  statement 
+	;
+    
+statement
+	: ?...?[(Identifier ?...?)] 
+	;
+
+lineList
+	: lineDirective
+	| lineList lineDirective
+	;
+	
+lineDirective
+	: Line Constant [([StringLiteral]-)]
+	;
+
+pragmaList
+	: pragmaDirective
+	| pragmaList pragmaDirective
+	;
+	
+pragmaDirective
+	: Pragma  ('startup'|'exit') Identifier [Constant]
+	| Pragma 'warn' ('-'|'+'|'.')Identifier 
+	;
+
+includeList
+	: include
+	| includeList include
+	;
+	
+include
+	: Include [StringLiteral]-
+	;
+
+bodyList 
+	: declaration
+	| ';'
+	;
+
+declaration 
+	: declarationSpecifiers [initDeclaratorList] ';'
+	| staticAssertDeclaration
+	;
+	
+declarationSpecifiers
+	: [declarationSpecifier]-
+	;
+
+declarationSpecifier
+	:   storageClassSpecifier
+    |   typeSpecifier
+    |   typeQualifier
+    |   functionSpecifier
+    |   alignmentSpecifier
+    ;
+    
+initDeclaratorList
+	: initDeclarator
+	| initDeclaratorList ',' initDeclarator
+	;
+	
+staticAssertDeclaration
+    :   StaticAssert '(' constantExpression ',' [StringLiteral]- ')' ';'
+    ;
+    
+constantExpression
+    :   conditionalExpression
+    ;
+
+conditionalExpression
+    :   logicalOrExpression [('?' expression ':' conditionalExpression)]
+    ;
+    
+
+logicalOrExpression
+    :   logicalAndExpression
+    |   logicalOrExpression '||' logicalAndExpression
+    ;
+
+logicalAndExpression
+    :   inclusiveOrExpression
+    |   logicalAndExpression '&&' inclusiveOrExpression
+    ;
+    
+inclusiveOrExpression
+    :   exclusiveOrExpression
+    |   inclusiveOrExpression '|' exclusiveOrExpression
+    ;
+
+exclusiveOrExpression
+    :   andExpression
+    |   exclusiveOrExpression '^' andExpression
+    ;
+
+andExpression
+    :   equalityExpression
+    |   andExpression '&' equalityExpression
+    ;
+
+equalityExpression
+    :   relationalExpression
+    |   equalityExpression '==' relationalExpression
+    |   equalityExpression '!=' relationalExpression
+    ;
+
+relationalExpression
+    :   shiftExpression
+    |   relationalExpression '<' shiftExpression
+    |   relationalExpression '>' shiftExpression
+    |   relationalExpression '<=' shiftExpression
+    |   relationalExpression '>=' shiftExpression
+    ;
+
+shiftExpression
+    :   additiveExpression
+    |   shiftExpression '<<' additiveExpression
+    |   shiftExpression '>>' additiveExpression
+    ;
+
+additiveExpression
+    :   multiplicativeExpression
+    |   additiveExpression '+' multiplicativeExpression
+    |   additiveExpression '-' multiplicativeExpression
+    ;
+
+multiplicativeExpression
+    :   castExpression
+    |   multiplicativeExpression '*' castExpression
+    |   multiplicativeExpression '/' castExpression
+    |   multiplicativeExpression '%' castExpression
+    ;
+
+castExpression
+    :   unaryExpression
+    |   '(' typeName ')' castExpression
+    |   '__extension__' '(' typeName ')' castExpression
+    ;
+
+expression
+    :   assignmentExpression
+    |   expression ',' assignmentExpression
+    ;
+
+assignmentExpression
+    :   conditionalExpression
+    |   unaryExpression assignmentOperator assignmentExpression
+    ;
+
+assignmentOperator
+    :   '=' | '*=' | '/=' | '%=' | '+=' | '-=' | '<<=' | '>>=' | '&=' | '^=' | '|='
+    ;
+    
+typeName
+    :   specifierQualifierList [abstractDeclarator]
+    ;
+
+unaryExpression
+    :   postfixExpression
+    |   '++' unaryExpression
+    |   '--' unaryExpression
+    |   unaryOperator castExpression
+    |   'sizeof' unaryExpression
+    |   'sizeof' '(' typeName ')'
+    |   '_Alignof' '(' typeName ')'
+    |   '&&' Identifier // GCC extension address of label
+    ;
+
+postfixExpression
+    :   primaryExpression
+    |   postfixExpression '[' expression ']'
+    |   postfixExpression '(' [argumentExpressionList] ')'
+    |   postfixExpression '.' Identifier
+    |   postfixExpression '->' Identifier
+    |   postfixExpression '++'
+    |   postfixExpression '--'
+    |   '(' typeName ')' '{' initializerList '}'
+    |   '(' typeName ')' '{' initializerList ',' '}'
+    |   '__extension__' '(' typeName ')' '{' initializerList '}'
+    |   '__extension__' '(' typeName ')' '{' initializerList ',' '}'
+    ;
+    
+argumentExpressionList
+    :   assignmentExpression
+    |   argumentExpressionList ',' assignmentExpression
+    ;
+
+unaryOperator
+    :   '&' | '*' | '+' | '-' | '~' | '!'
+    ;
+	
+initDeclarator
+	: declarator
+	| declarator '=' initializer
+	;
+
+initializer
+    :   primaryExpression
+    |   '{' [initializerList] '}'
+    |   '{' initializerList ',' '}'
+    ;
+
+initializerList
+    :   [designation] initializer
+    |   initializerList ',' [designation] initializer
+    ;
+
+designation
+    :   designatorList '='
+    ;
+
+designatorList
+    :   designator
+    |   designatorList designator
+    ;
+
+designator
+    :   '[' primaryExpression ']'
+    |   '.' Identifier
+    ;  
+     
+primaryExpression
+    :   Identifier
+    |   Constant
+    |   [StringLiteral]
+    |   '(' expression ')'
+    |   genericSelection
+    |   '__builtin_va_arg' '(' unaryExpression ',' typeName ')'
+    |   '__builtin_offsetof' '(' typeName ',' unaryExpression ')'
+    ;   
+    
+genericSelection
+    :   '_Generic' '(' assignmentExpression ',' genericAssocList ')'
+    ;
+
+genericAssocList
+    :   genericAssociation
+    |   genericAssocList ',' genericAssociation
+    ;
+
+genericAssociation
+    :   typeName ':' assignmentExpression
+    |   'default' ':' assignmentExpression
+    ;
+      
+alignmentSpecifier
+    :   '_Alignas' '(' typeName ')'
+    |   '_Alignas' '(' constantExpression ')'
+    ;
+    
+functionSpecifier
+    :   ('inline'
+    |   '_Noreturn'
+    |   '__inline__' 
+    |   '__stdcall')
+    |   gccAttributeSpecifier
+    |   '__declspec' '(' Identifier ')'
+    ;
+
+gccAttributeSpecifier
+    :   '__attribute__' '(' '(' gccAttributeList ')' ')'
+    ;
+
+gccAttributeList
+    :   gccAttribute {(',' gccAttribute)}
+    ;
+
+gccAttribute
+    :   -(',' | '(' | ')') 
+        [('(' [argumentExpressionList] ')')]
+    ;
+    
+storageClassSpecifier
+    :   'typedef'
+    |   'extern'
+    |   'static'
+    |   '_Thread_local'
+    |   'auto'
+    |   'register'
+    ;
+    
+typeSpecifier
+    :   ('void'
+    |   'char'
+    |   'short'
+    |   'int'
+    |   'long'
+    |   'float'
+    |   'double'
+    |   'signed'
+    |   'unsigned'
+    |   'boolean'
+    |   '_Bool'
+    |   '_Complex'
+    |   '__m128'
+    |   '__m128d'
+    |   '__m128i')
+    |   '__extension__' '(' ('__m128' | '__m128d' | '__m128i') ')'
+    |   atomicTypeSpecifier
+    |   structOrUnionSpecifier
+    |   enumSpecifier
+    |   typedefName
+    |   '__typeof__' '(' constantExpression ')' // GCC extension
+    ;
+    
+atomicTypeSpecifier
+    :   '_Atomic' '(' typeName ')'
+    ;
+    
+structOrUnionSpecifier
+	: structOrUnion [Identifier] '{' [structDeclarationList] '}'
+	| structOrUnion Identifier
+	;
+
+structOrUnion
+	: 'struct'
+	| 'union'
+	;
+
+structDeclaration
+	: specifierQualifierList [structDeclaratorList] ';'
+	| staticAssertDeclaration
+	;
+	
+structDeclarationList
+	: structDeclaration
+	| structDeclarationList  structDeclaration 
+	;
+
+specifierQualifierList
+	: typeSpecifier [specifierQualifierList]
+	| typeQualifier [specifierQualifierList]
+	;
+
+typeQualifier
+	: 'const'
+	| 'restrict' 
+	| 'restrict'
+	| '_Atomic'
+	;
+
+structDeclaratorList
+	: structDeclarator
+	| structDeclaratorList ',' structDeclarator
+	;
+		
+structDeclarator
+	: declarator
+	| [declarator] ':' constantExpression 
+	;
+
+declarator
+	: [pointer] directDeclarator  
+	;
+	
+pointer
+    :   '*' [typeQualifierList]
+    |   '*' [typeQualifierList] pointer
+    |   '^' [typeQualifierList] 
+    |   '^' [typeQualifierList] pointer 
+    ;
+	
+directDeclarator
+    :   Identifier
+    |   '(' declarator ')'
+    |   directDeclarator '[' [typeQualifierList] [assignmentExpression] ']'
+    |   directDeclarator '[' Static [typeQualifierList] assignmentExpression ']'
+    |   directDeclarator '[' typeQualifierList Static assignmentExpression ']'
+    |   directDeclarator '[' [typeQualifierList] '*' ']'
+    |   directDeclarator '(' parameterTypeList ')'
+    |   directDeclarator '(' [identifierList] ')'
+    ;
+	
+parameterTypeList
+	: parameterList
+	| parameterList ',' '...'
+	;
+	
+parameterList
+	: parameterDeclaration
+	| parameterList ',' parameterDeclaration
+	;
+
+parameterDeclaration
+	: declarationSpecifiers declarator 
+	| declarationSpecifiers [abstractDeclarator]
+	;
+
+abstractDeclarator
+    :   pointer
+    |   [pointer] directAbstractDeclarator {gccDeclaratorExtension}
+    ;
+    
+gccDeclaratorExtension
+    :   '__asm' '(' [StringLiteral]- ')'
+    |   gccAttributeSpecifier
+    ;
+    
+directAbstractDeclarator
+    :   '(' abstractDeclarator ')' {gccDeclaratorExtension}
+    |   '[' [typeQualifierList] [assignmentExpression] ']'
+    |   '[' Static [typeQualifierList] assignmentExpression ']'
+    |   '[' typeQualifierList Static assignmentExpression ']'
+    |   '[' '*' ']'
+    |   '(' [parameterTypeList] ')' {gccDeclaratorExtension}
+    |   directAbstractDeclarator '[' [typeQualifierList] [assignmentExpression] ']'
+    |   directAbstractDeclarator '[' Static [typeQualifierList] assignmentExpression ']'
+    |   directAbstractDeclarator '[' typeQualifierList Static assignmentExpression ']'
+    |   directAbstractDeclarator '[' '*' ']'
+    |   directAbstractDeclarator '(' [parameterTypeList] ')' {gccDeclaratorExtension}
+    ;
+    
+identifierList
+	: Identifier
+	| identifierList ',' Identifier 
+	;
+	
+typeQualifierList
+	: typeQualifier
+	| typeQualifierList typeQualifier 
+	;
+	
+typedefName
+	: Identifier
+	;
+
+enumSpecifier
+	: Enum [Identifier] '{' enumeratorList '}' 
+	| Enum [Identifier] '{' enumeratorList ',''}' 
+	| Enum Identifier 
+	;
+	
+enumeratorList
+	: enumerator
+	| enumeratorList ',' enumerator
+	;
+
+enumerator
+	: enumerationConstant 
+	| enumerationConstant '=' constantExpression  
+	;
+	
+enumerationConstant
+	: Identifier
+	;
